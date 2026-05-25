@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}DeepDefend NIDS - About{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1>About DeepDefend NIDS</h1>
+        <p>Production-grade Network Intrusion Detection System for imbalanced enterprise networks</p>
+    </div>
+    
+    <div class="grid-2 mb-24">
+        <div class="card">
+            <div class="card-header">Architecture</div>
+            <div class="card-body" style="font-size: 13px; line-height: 1.8;">
+                <strong>Three-Layer Cascaded Detection:</strong>
+                <ol style="margin-left: 20px; margin-top: 8px;">
+                    <li><strong>Anomaly Detection</strong> (Isolation Forest) - Filters normal traffic</li>
+                    <li><strong>Attack Classification</strong> (XGBoost Ensemble) - Identifies attack type</li>
+                    <li><strong>Probability Calibration</strong> (Platt Scaling) - Trustworthy confidence scores</li>
+                </ol>
+                <br>
+                <strong>Dual Detection Sources:</strong>
+                <ul style="margin-left: 20px; margin-top: 8px;">
+                    <li>Snort IDS - Signature-based known attack detection</li>
+                    <li>ML Engine - Behavioral anomaly detection for zero-day attacks</li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">Attack Classes Detected</div>
+            <div class="card-body" style="font-size: 13px; line-height: 1.8;">
+                <table>
+                    <tr><td style="font-weight: 600;">DoS</td><td>Denial of Service attacks (SYN flood, Smurf, etc.)</td></tr>
+                    <tr><td style="font-weight: 600;">Probe</td><td>Network reconnaissance and port scanning</td></tr>
+                    <tr><td style="font-weight: 600;">R2L</td><td>Remote-to-Local unauthorized access attempts</td></tr>
+                    <tr><td style="font-weight: 600;">U2R</td><td>User-to-Root privilege escalation (0.04% of data)</td></tr>
+                </table>
+                <br>
+                <strong>Key Innovation:</strong> Handles extreme class imbalance where 
+                U2R attacks represent only 52 out of 125,000 training samples (0.04%).
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">System Details</div>
+        <div class="card-body">
+            <div class="grid-3" style="font-size: 13px; line-height: 1.8;">
+                <div>
+                    <strong>Version:</strong> 1.0.0<br>
+                    <strong>Python:</strong> 3.10+<br>
+                    <strong>Framework:</strong> XGBoost + scikit-learn
+                </div>
+                <div>
+                    <strong>Dataset:</strong> NSL-KDD<br>
+                    <strong>Training Samples:</strong> 125,973<br>
+                    <strong>Features:</strong> 41 (NSL-KDD) + Extended
+                </div>
+                <div>
+                    <strong>Deployment:</strong> Docker / Linux<br>
+                    <strong>Metrics:</strong> Prometheus<br>
+                    <strong>SIEM Output:</strong> RFC 5424 Syslog + JSON
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

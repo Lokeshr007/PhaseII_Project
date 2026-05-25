@@ -1,0 +1,311 @@
+{% extends "base.html" %}
+{% block title %}DeepDefend NIDS - System Metrics{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+    }
+    
+    .metric-card {
+        background: var(--bg-primary);
+        border: 1px solid var(--border-color);
+        border-radius: var(--radius-lg);
+        padding: 24px;
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .metric-title {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+    
+    .raw-data-panel {
+        font-family: 'SF Mono', 'Consolas', monospace;
+        font-size: 11px;
+        background: #1e1e1e;
+        color: #d4d4d4;
+        padding: 16px;
+        border-radius: var(--radius);
+        max-height: 400px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+    }
+    
+    .health-badge {
+        padding: 4px 12px;
+        border-radius: 100px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+    
+    .health-ok { background: #e6fffa; color: #047481; }
+    .health-warn { background: #fffaf0; color: #975a16; }
+    .health-crit { background: #fff5f5; color: #9b2c2c; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1>System Metrics</h1>
+                <p>Real-time telemetry from Prometheus and Health endpoints</p>
+            </div>
+            <div id="last-update" class="text-muted" style="font-size: 12px;">Last update: Just now</div>
+        </div>
+    </div>
+    
+    <div class="metrics-grid mb-24">
+        <!-- Resource Usage -->
+        <div class="metric-card">
+            <div class="metric-title" style="flex-direction: column; align-items: flex-start; gap: 5px;">
+                <div style="display: flex; justify-content: space-between; width: 100%;">
+                    <span>Resource Consumption</span>
+                    <div class="live-indicator"><div class="live-dot"></div> Live</div>
+                </div>
+                <span style="font-size: 12px; font-weight: normal; color: var(--text-secondary);">Shows the real-time CPU and RAM usage of the DeepDefend AI Engine processing packets in the background.</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="resourceChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- System Health -->
+        <div class="metric-card">
+            <div class="metric-title" style="flex-direction: column; align-items: flex-start; gap: 5px;">
+                <span>Architecture Health</span>
+                <span style="font-size: 12px; font-weight: normal; color: var(--text-secondary);">Live status of the internal AI pipeline. 'HEALTHY' means the components are actively scanning network traffic.</span>
+            </div>
+            <div id="health-list">
+                <div class="empty-state" style="padding: 20px;">
+                    Loading health data...
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="grid-2 mb-24">
+        <!-- Detection Performance -->
+        <div class="metric-card">
+            <div class="metric-title" style="flex-direction: column; align-items: flex-start; gap: 5px;">
+                <span>Network Throughput vs Detection</span>
+                <span style="font-size: 12px; font-weight: normal; color: var(--text-secondary);">Comparing the raw amount of network packets analyzed per second vs the number of actual malicious attacks flagged.</span>
+            </div>
+            <div class="chart-container">
+                <canvas id="throughputChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Raw Telemetry -->
+        <div class="metric-card">
+            <div class="metric-title" style="flex-direction: column; align-items: flex-start; gap: 5px;">
+                <div style="display: flex; justify-content: space-between; width: 100%;">
+                    <span>Prometheus Telemetry Stream</span>
+                    <button class="btn btn-outline btn-sm" onclick="copyRaw()">Copy</button>
+                </div>
+                <span style="font-size: 12px; font-weight: normal; color: var(--text-secondary);">The raw backend data stream generated automatically for external SIEM (Security Information and Event Management) tools.</span>
+            </div>
+            <div id="raw-metrics" class="raw-data-panel">Connecting to metrics stream...</div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+let resourceChart, throughputChart;
+const maxDataPoints = 30;
+const history = {
+    labels: [],
+    cpu: [],
+    mem: [],
+    packets: [],
+    alerts: []
+};
+
+function initCharts() {
+    const ctx1 = document.getElementById('resourceChart').getContext('2d');
+    resourceChart = new Chart(ctx1, {
+        type: 'line',
+        data: {
+            labels: history.labels,
+            datasets: [
+                {
+                    label: 'CPU Usage (%)',
+                    data: history.cpu,
+                    borderColor: '#0d6efd',
+                    backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Memory Usage (MB)',
+                    data: history.mem,
+                    borderColor: '#6f42c1',
+                    backgroundColor: 'rgba(111, 66, 193, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, max: 100 },
+                y1: { position: 'right', beginAtZero: true, grid: { display: false } }
+            },
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+
+    const ctx2 = document.getElementById('throughputChart').getContext('2d');
+    throughputChart = new Chart(ctx2, {
+        type: 'bar',
+        data: {
+            labels: history.labels,
+            datasets: [
+                {
+                    label: 'Packets/sec',
+                    data: history.packets,
+                    backgroundColor: '#198754'
+                },
+                {
+                    label: 'Alerts Detected',
+                    data: history.alerts,
+                    backgroundColor: '#dc3545'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true }
+            },
+            plugins: { legend: { position: 'bottom' } }
+        }
+    });
+}
+
+function updateMetrics() {
+    fetch('/api/metrics')
+        .then(r => r.text())
+        .then(text => {
+            document.getElementById('raw-metrics').textContent = text;
+            parseAndAddData(text);
+            document.getElementById('last-update').textContent = 'Last update: ' + new Date().toLocaleTimeString();
+        });
+
+    fetch('/api/health')
+        .then(r => r.json())
+        .then(data => {
+            updateHealthUI(data);
+        });
+}
+
+function parseAndAddData(raw) {
+    const lines = raw.split('\n');
+    let cpu = 0, mem = 0, pps = 0, alerts = 0;
+
+    lines.forEach(line => {
+        if (line.startsWith('deepdefend_cpu_usage')) cpu = parseFloat(line.split(' ')[1]);
+        if (line.startsWith('deepdefend_memory_usage_bytes')) mem = parseFloat(line.split(' ')[1]) / (1024 * 1024);
+        if (line.startsWith('deepdefend_packets_processed_total')) {
+            const val = parseFloat(line.split(' ')[1]);
+            pps = history.lastPackets ? (val - history.lastPackets) / 5 : 0;
+            history.lastPackets = val;
+        }
+        if (line.startsWith('deepdefend_alerts_total')) {
+            const val = parseFloat(line.split(' ')[1]);
+            alerts = history.lastAlerts ? (val - history.lastAlerts) : 0;
+            history.lastAlerts = val;
+        }
+    });
+
+    const now = new Date().toLocaleTimeString();
+    history.labels.push(now);
+    history.cpu.push(cpu);
+    history.mem.push(mem);
+    history.packets.push(pps);
+    history.alerts.push(alerts);
+
+    if (history.labels.length > maxDataPoints) {
+        history.labels.shift();
+        history.cpu.shift();
+        history.mem.shift();
+        history.packets.shift();
+        history.alerts.shift();
+    }
+
+    resourceChart.update('none');
+    throughputChart.update('none');
+}
+
+function updateHealthUI(data) {
+    const list = document.getElementById('health-list');
+    
+    // Check if we got the fallback error response
+    if (data.status === 'unknown' && data.engine) {
+        list.innerHTML = `<div class="empty-state" style="padding: 20px;">Engine not reachable. Ensure run_engine.py is running.</div>`;
+        return;
+    }
+
+    const components = [
+        { name: 'Flow Aggregator', data: data.flow_aggregator },
+        { name: 'Inference Engine', data: data.inference_engine },
+        { name: 'Snort IDS', data: data.snort },
+        { name: 'Firewall Backend', data: data.firewall }
+    ];
+
+    list.innerHTML = components.map(c => {
+        const status = c.data ? c.data.status : 'unknown';
+        const isOk = status === 'healthy' || status === 'running';
+        const msg = c.data && c.data.message ? c.data.message : '';
+        
+        return `
+        <div style="display: flex; flex-direction: column; padding: 12px 0; border-bottom: 1px solid var(--border-light);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <span style="font-weight: 500;">${c.name}</span>
+                <span class="health-badge ${isOk ? 'health-ok' : 'health-crit'}">
+                    ${status.toUpperCase()}
+                </span>
+            </div>
+            <div style="font-size: 11px; color: var(--text-secondary);">${msg}</div>
+        </div>
+        `;
+    }).join('') + `
+        <div style="margin-top: 20px;">
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 8px;">System Load</div>
+            <div style="display: flex; gap: 8px;">
+                <span class="badge badge-low">CPU: ${data.system?.metrics?.cpu_percent?.toFixed(1) || '0.0'}%</span>
+                <span class="badge badge-low">RAM: ${data.system?.metrics?.memory_mb?.toFixed(0) || '0'} MB</span>
+            </div>
+        </div>
+    `;
+}
+
+function copyRaw() {
+    const text = document.getElementById('raw-metrics').textContent;
+    navigator.clipboard.writeText(text);
+}
+
+initCharts();
+updateMetrics();
+setInterval(updateMetrics, 5000);
+</script>
+{% endblock %}

@@ -1,0 +1,42 @@
+# Core
+numpy>=1.24.0
+scipy>=1.10.0
+pandas>=2.0.0
+scikit-learn>=1.2.0
+pydantic>=2.0.0
+pyyaml>=6.0
+
+# ML/Imbalance
+xgboost>=2.0.0
+imbalanced-learn>=0.11.0
+lightgbm>=4.0.0
+
+# Deep learning (optional, for autoencoder)
+torch>=2.0.0
+
+# Network & Capture
+scapy>=2.5.0
+
+# Operations
+prometheus-client>=0.17.0
+structlog>=23.0.0
+
+# Testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+
+# Utilities
+joblib>=1.3.0
+tqdm>=4.65.0
+click>=8.0.0
+flask>=3.0.0
+requests>=2.31.0
+
+# python scripts\attack_cli.py --type dos
+# python scripts\attack_cli.py --type probe
+# python scripts\attack_cli.py --type r2l
+# python scripts\attack_cli.py --type u2r --target 10.0.0.55
+# python scripts\attack_cli.py --type u2r --source 8.8.4.4
+
+
+#To Run python scripts\run_engine.py --mode development

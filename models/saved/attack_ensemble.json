@@ -1,0 +1,6 @@
+{
+  "name": "xgboost_ensemble",
+  "type": "attack_classifier",
+  "created": "2026-04-26T15:25:34.265494",
+  "framework_version": "unknown"
+}

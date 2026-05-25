@@ -1,0 +1,6 @@
+{
+  "name": "isolation_forest",
+  "type": "anomaly_detector",
+  "created": "2026-04-26T15:25:15.958885",
+  "framework_version": "scikit-learn-1.8.0"
+}

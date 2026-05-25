@@ -1,0 +1,69 @@
+# DeepDefend Default Configuration
+# Override per deployment in config/{mode}.yaml
+
+mode: development
+log_level: INFO
+model_path: ./models/saved
+data_path: ./data
+
+imbalance:
+  minority_classes:
+    - u2r
+    - r2l
+  class_weights:
+    normal: 1.0
+    dos: 5.0
+    probe: 10.0
+    r2l: 25.0
+    u2r: 50.0
+  oversampling_method: smote
+  minority_oversampling_ratio: 0.3
+  false_positive_budget_per_day: 20
+
+model:
+  anomaly_detector: isolation_forest
+  attack_classifiers:
+    - dos
+    - probe
+    - r2l
+    - u2r
+  classifier_algorithm: xgboost
+  calibration_method: platt
+  confidence_thresholds:
+    critical: 0.9
+    high: 0.75
+    medium: 0.6
+    low: 0.4
+
+flow:
+  window_seconds: 2.0
+  slide_seconds: 1.0
+  max_flows_per_window: 100000
+  ring_buffer_size: 10000
+  feature_set: nsl_kdd_extended
+
+snort:
+  enabled: true
+  binary_path: /usr/sbin/snort
+  config_path: /etc/snort/snort.conf
+  rules_path: /etc/snort/rules
+  custom_rules_path: ./config/snort/custom.rules
+  interface: eth0
+
+response:
+  auto_block: false
+  auto_block_threshold: critical
+  quarantine_enabled: false
+  firewall_backend: iptables
+  blocked_ips_file: /var/lib/deepdefend/blocked_ips.json
+
+notification:
+  slack_webhook: null
+  email_smtp_host: null
+  email_recipients: []
+  notification_severity: high
+
+siem:
+  output_format: json_syslog
+  syslog_facility: local0
+  include_raw_features: true

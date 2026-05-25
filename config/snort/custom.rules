@@ -1,0 +1,98 @@
+# DeepDefend Custom Snort Rules
+# Supplement community rules with organization-specific signatures
+
+# ─── Brute Force Detection ─────────────────────────────────
+# Multiple SSH login failures
+alert tcp $EXTERNAL_NET any -> $HOME_NET 22 \
+    (msg:"DEEPDEFEND SSH Brute Force Attempt"; \
+     flow:to_server,established; \
+     content:"Failed password"; nocase; \
+     threshold:type threshold, track by_src, count 5, seconds 60; \
+     classtype:attempted-user; sid:1000001; rev:1;)
+
+# Multiple FTP login failures
+alert tcp $EXTERNAL_NET any -> $HOME_NET 21 \
+    (msg:"DEEPDEFEND FTP Brute Force Attempt"; \
+     flow:to_server,established; \
+     content:"530 Login incorrect"; nocase; \
+     threshold:type threshold, track by_src, count 5, seconds 60; \
+     classtype:attempted-user; sid:1000002; rev:1;)
+
+# ─── Port Scan Detection ────────────────────────────────────
+# SYN scan (multiple SYN to different ports from same source)
+alert tcp $EXTERNAL_NET any -> $HOME_NET any \
+    (msg:"DEEPDEFEND SYN Port Scan Detected"; \
+     flags:S; \
+     threshold:type threshold, track by_src, count 20, seconds 10; \
+     classtype:attempted-recon; sid:1000003; rev:1;)
+
+# ─── Privilege Escalation Patterns ──────────────────────────
+# sudo misuse detection
+alert tcp $HOME_NET any -> $HOME_NET any \
+    (msg:"DEEPDEFEND Possible Privilege Escalation - sudo su"; \
+     content:"sudo su"; nocase; \
+     classtype:attempted-admin; sid:1000004; rev:1;)
+
+# Root login attempt
+alert tcp $EXTERNAL_NET any -> $HOME_NET 22 \
+    (msg:"DEEPDEFEND Direct Root SSH Login Attempt"; \
+     flow:to_server,established; \
+     content:"root"; nocase; \
+     pcre:"/root@/"; \
+     classtype:attempted-admin; sid:1000005; rev:1;)
+
+# ─── Data Exfiltration Indicators ───────────────────────────
+# Large outbound data transfer
+alert tcp $HOME_NET any -> $EXTERNAL_NET any \
+    (msg:"DEEPDEFEND Large Outbound Data Transfer"; \
+     flow:to_server,established; \
+     dsize:>10000000; \
+     classtype:bad-unknown; sid:1000006; rev:1;)
+
+# DNS tunneling detection (long DNS queries)
+alert udp $HOME_NET any -> any 53 \
+    (msg:"DEEPDEFEND Possible DNS Tunneling"; \
+     dsize:>150; \
+     classtype:bad-unknown; sid:1000007; rev:1;)
+
+# ─── Malware C2 Patterns ────────────────────────────────────
+# Known C2 beaconing (regular intervals)
+alert tcp $HOME_NET any -> $EXTERNAL_NET any \
+    (msg:"DEEPDEFEND Possible C2 Beaconing"; \
+     flow:to_server,established; \
+     dsize:0<>100; \
+     threshold:type both, track by_dst, count 10, seconds 3600; \
+     classtype:bad-unknown; sid:1000008; rev:1;)
+
+# ─── Insider Threat Indicators ──────────────────────────────
+# After-hours access
+alert tcp $HOME_NET any -> $HOME_NET any \
+    (msg:"DEEPDEFEND After-Hours Sensitive Access"; \
+     flow:to_server,established; \
+     content:"SELECT"; nocase; \
+     threshold:type threshold, track by_src, count 1, seconds 1; \
+     detection_filter:track by_src, count 1, seconds 1; \
+     classtype:bad-unknown; sid:1000009; rev:1;)
+
+# ─── Web Application Attacks ────────────────────────────────
+# SQL injection attempt
+alert tcp $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS \
+    (msg:"DEEPDEFEND SQL Injection Attempt"; \
+     flow:to_server,established; \
+     content:"UNION SELECT"; nocase; \
+     classtype:attempted-user; sid:1000010; rev:1;)
+
+# Cross-site scripting attempt
+alert tcp $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS \
+    (msg:"DEEPDEFEND XSS Attempt"; \
+     flow:to_server,established; \
+     content:"<script"; nocase; \
+     classtype:attempted-user; sid:1000011; rev:1;)
+
+# ─── Insider Data Access ────────────────────────────────────
+# Sensitive file access
+alert tcp $HOME_NET any -> $HOME_NET any \
+    (msg:"DEEPDEFEND Sensitive File Access"; \
+     flow:to_server,established; \
+     content:"passwd"; nocase; \
+     classtype:bad-unknown; sid:1000012; rev:1;)

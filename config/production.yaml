@@ -1,0 +1,90 @@
+# DeepDefend Production Configuration
+# Hardened settings for enterprise deployment
+
+mode: production
+log_level: INFO
+model_path: /opt/deepdefend/models/saved
+data_path: /var/lib/deepdefend/data
+
+imbalance:
+  minority_classes:
+    - u2r
+    - r2l
+  class_weights:
+    normal: 1.0
+    dos: 5.0
+    probe: 10.0
+    r2l: 25.0
+    u2r: 50.0
+  oversampling_method: smote_tomek
+  minority_oversampling_ratio: 0.3
+  false_positive_budget_per_day: 20  # Strict: analysts can handle 20/day
+
+model:
+  anomaly_detector: isolation_forest
+  attack_classifiers:
+    - dos
+    - probe
+    - r2l
+    - u2r
+  classifier_algorithm: xgboost
+  xgboost_params:
+    max_depth: 10
+    learning_rate: 0.01
+    n_estimators: 500  # More estimators in production
+    subsample: 0.7
+    colsample_bytree: 0.7
+    reg_alpha: 1.0
+    reg_lambda: 2.0
+    min_child_weight: 3
+    eval_metric: aucpr
+    tree_method: hist
+    random_state: 42
+    early_stopping_rounds: 50
+  calibration_method: platt
+  confidence_thresholds:
+    critical: 0.95  # Higher threshold in production
+    high: 0.85
+    medium: 0.70
+    low: 0.50
+
+flow:
+  window_seconds: 2.0
+  slide_seconds: 1.0
+  max_flows_per_window: 200000  # Higher for production traffic
+  ring_buffer_size: 50000
+  feature_set: nsl_kdd_extended
+
+snort:
+  enabled: true
+  binary_path: /usr/sbin/snort
+  config_path: /etc/snort/snort.conf
+  rules_path: /etc/snort/rules
+  custom_rules_path: /etc/snort/custom.rules
+  interface: eth0
+  alert_socket_path: /tmp/snort_alert
+
+response:
+  auto_block: false  # Start with false, enable after validation
+  auto_block_threshold: critical
+  quarantine_enabled: false  # Requires network infrastructure API
+  firewall_backend: iptables
+  blocked_ips_file: /var/lib/deepdefend/blocked_ips.json
+
+notification:
+  slack_webhook: null  # Set via environment variable DEEPDEFEND_SLACK_WEBHOOK
+  email_smtp_host: null
+  email_recipients:
+    - security-team@enterprise.com
+  notification_severity: high
+  pagerduty_key: null
+
+siem:
+  output_format: json_syslog
+  syslog_facility: local0
+  syslog_severity_map:
+    critical: critical
+    high: error
+    medium: warning
+    low: info
+  include_raw_features: true

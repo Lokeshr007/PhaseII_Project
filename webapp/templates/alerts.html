@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}DeepDefend NIDS - Alerts{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1>Alert History</h1>
+        <p>Detailed view of all detected intrusion alerts</p>
+    </div>
+    
+    <!-- Filters -->
+    <div class="card mb-20">
+        <div class="card-body" style="padding: 12px 20px;">
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                <span style="font-weight: 600; font-size: 13px;">Filter:</span>
+                <select id="filter-severity" class="btn btn-outline btn-sm" onchange="loadAlerts()">
+                    <option value="">All Severities</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                </select>
+                <select id="filter-class" class="btn btn-outline btn-sm" onchange="loadAlerts()">
+                    <option value="">All Classes</option>
+                    <option value="dos">DoS</option>
+                    <option value="probe">Probe</option>
+                    <option value="r2l">R2L</option>
+                    <option value="u2r">U2R</option>
+                </select>
+                <button class="btn btn-outline btn-sm" onclick="loadAlerts()">Refresh</button>
+                <span style="margin-left: auto; font-size: 12px; color: var(--text-muted);" id="alert-count"></span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Alerts Table -->
+    <div class="card">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Severity</th>
+                        <th>Class</th>
+                        <th>Source</th>
+                        <th>Target</th>
+                        <th>Confidence</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="alerts-table-body">
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <h3>Loading alerts...</h3>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadAlerts() {
+    const severity = document.getElementById('filter-severity').value;
+    const attackClass = document.getElementById('filter-class').value;
+    
+    let url = '/api/alerts?limit=200';
+    if (severity) url += '&severity=' + severity;
+    if (attackClass) url += '&class=' + attackClass;
+    
+    fetch(url)
+        .then(r => r.json())
+        .then(alerts => {
+            const tbody = document.getElementById('alerts-table-body');
+            document.getElementById('alert-count').textContent = alerts.length + ' alerts';
+            
+            if (alerts.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <h3>No alerts match the filter</h3>
+                            </div>
+                        </td>
+                    </tr>`;
+                return;
+            }
+            
+            tbody.innerHTML = alerts.map(a => `
+                <tr>
+                    <td style="white-space: nowrap;">${new Date(a.timestamp).toLocaleString()}</td>
+                    <td><span class="badge badge-${a.severity}">${a.severity}</span></td>
+                    <td><strong>${a.attack_class.toUpperCase()}</strong></td>
+                    <td><code>${a.src_ip}:${a.src_port}</code></td>
+                    <td><code>${a.dst_ip}:${a.dst_port}</code></td>
+                    <td>${(a.confidence * 100).toFixed(0)}%</td>
+                    <td>${a.action_taken || 'logged'}</td>
+                </tr>
+            `).join('');
+        })
+        .catch(e => {
+            document.getElementById('alerts-table-body').innerHTML = `
+                <tr><td colspan="7"><div class="empty-state"><h3>Error loading alerts</h3></div></td></tr>`;
+        });
+}
+
+// Load on page open
+loadAlerts();
+
+// Auto-refresh
+setInterval(loadAlerts, 5000);
+</script>
+{% endblock %}
